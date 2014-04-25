@@ -4,7 +4,7 @@ Sinarey, base on Sinatra, use for large rack app project
 
 # TODO 
 
-write readme
+write readme...
 
 
 yeah.happy coding:)
