@@ -13,6 +13,7 @@ class Application < Sinatra::SinareyBase
   end
 
   get '/app1' do
+    p '123'
     'app1'
   end
 

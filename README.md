@@ -1,10 +1,11 @@
 # sinarey
 
 Sinarey, base on Sinatra, use for large rack app project
+ 
+1.0.3: change sinatra version to 1.4.5
 
-# TODO 
+1.0.4: add pjax request support. 
 
-write readme...
 
 
 yeah.happy coding:)

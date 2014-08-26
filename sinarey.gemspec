@@ -21,6 +21,6 @@ Gem::Specification.new 'sinarey',Sinarey::VERSION do |spec|
                         'demo/config.ru',
                         'sinarey.gemspec',
                         'README.md']
-  spec.add_dependency 'sinatra', '1.4.4'
+  spec.add_dependency 'sinatra', '1.4.5'
                         
 end

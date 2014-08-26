@@ -35,6 +35,11 @@ module Sinatra
       route = @request.path_info
       route.chop! if (char=route[-1]) and char=='/' # ignore last '/' char
 
+      #pjax request support
+      if route.chomp!('.pjax')
+        env["IS_PJAX_REQUEST"] = true
+      end
+
       @response['Content-Type'] = nil
       invoke { dispatch! }
       invoke { error_block!(response.status) } unless @env['sinatra.error']
