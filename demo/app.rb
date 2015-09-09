@@ -7,10 +7,12 @@ class Application < Sinatra::SinareyBase
     puts "before at app1"
   end
 
+  before "/app1/:id" do
+    puts "before app1 # #{params[:id]}"
+  end
+
   after do
-    p env['rack.framework']
-    p env['sinarey.common_params']
-    p env['sinarey.regex_params']
+    p env['sinarey.params']
   end
 
   error do
@@ -34,6 +36,17 @@ class Application < Sinatra::SinareyBase
   get '/app1/:id' do
 
     "app1 # #{params[:id]}"
+  end
+
+  get '/app1/*.*' do
+
+    "app1 # #{params[splat]}"
+  end
+
+  get %r{^/tracks/([\d]+)/([\d]+)$} do |id, track_id|
+    params[:id] = id
+    params[:track_id] = track_id
+    "tracks #{params[:id]}"
   end
 
 end

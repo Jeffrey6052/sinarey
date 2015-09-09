@@ -107,16 +107,14 @@ module Sinatra
         turbo_route.tap do |block_id|
           process_turbo_route do |*args|
             block = base.blocks[block_id]
-            env['sinatra.route'] = block.instance_variable_get(:@route_name)
-            route_eval { block[*args] }
+            action_block_wrap(block, *args)
           end
         end
       elsif routes = base.routes[@request.request_method]
         routes.each do |pattern, keys, conditions, block_id|
           process_route(pattern, keys, conditions) do |*args|
             block = base.blocks[block_id]
-            env['sinatra.route'] = block.instance_variable_get(:@route_name)
-            route_eval { block[*args] }
+            action_block_wrap(block, *args)
           end
         end
       end
@@ -135,19 +133,24 @@ module Sinatra
       when :turbo
         process_turbo_route do |*args|
           block = base.blocks[block_id]
-          env['sinatra.route'] = block.instance_variable_get(:@route_name)
-          route_eval { block[*args] }
+          action_block_wrap(block, *args)
         end
       when :normal
         match,keys,conditions = options[:match],options[:keys],options[:conditions]
         process_mount_route(match, keys, conditions) do |*args|
           block = base.blocks[block_id]
-          env['sinatra.route'] = block.instance_variable_get(:@route_name)
-          route_eval { block[*args] }
+          action_block_wrap(block, *args)
         end
       end
 
       route_missing
+    end
+
+    def action_block_wrap(block, *args)
+      env['sinatra.route'] = block.instance_variable_get(:@route_name)
+      route_eval { block[*args] }
+    ensure
+      env['sinarey.params'] = @params
     end
 
     # Run a route block and throw :halt with the result.
@@ -160,17 +163,13 @@ module Sinatra
 
       if values.any?
         original, @params = params, params.merge('splat' => [], 'captures' => values)
-        regex_params = {}
         keys.zip(values) do |k,v| 
           if Array === @params[k]
-            regex_params[k] << v
             @params[k] << v 
           elsif v
-            regex_params[k] = v
             @params[k] = v  
           end
         end
-        env["sinarey.regex_params"] = regex_params
       end
 
       (block_id && (block = settings.blocks[block_id])) ? block[self, values] : yield(self, values)
@@ -1142,7 +1141,7 @@ module Sinatra
     end
 
     after do
-      env['sinarey.common_params'] = @params
+      env['sinarey.params'] ||= @params
     end
 
     configure :development do
