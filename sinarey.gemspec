@@ -7,7 +7,7 @@ Gem::Specification.new 'sinarey',Sinarey::VERSION do |spec|
   spec.email         = ["jeffrey6052@163.com"]
   spec.description   = "add turbo_routes and a fast multi module router for sinatra."
   spec.summary       = "Sinarey, use for large rack project."
-  spec.homepage      = "https://github.com/maymay25/sinarey"
+  spec.homepage      = "https://github.com/jeffrey6052/sinarey"
   spec.license       = "MIT"
 
   spec.files         = ['lib/sinatra/sinarey_reloader.rb',
