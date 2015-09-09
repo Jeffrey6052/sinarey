@@ -1,19 +1,28 @@
 
-#$LOAD_PATH.unshift File.expand_path('../lib',__dir__)
-#require 'sinarey/base'
+require 'sinarey/base'
 
 class Application < Sinatra::SinareyBase
+
+  before do
+    puts "before at app1"
+  end
+
+  after do
+    p env['rack.framework']
+    p env['sinarey.common_params']
+    p env['sinarey.regex_params']
+  end
 
   error do
     'error at app1'
   end
 
   get '/' do
+
     'index'
   end
 
   get '/app1' do
-    p '123'
     'app1'
   end
 
@@ -23,6 +32,7 @@ class Application < Sinatra::SinareyBase
   end
 
   get '/app1/:id' do
+
     "app1 # #{params[:id]}"
   end
 

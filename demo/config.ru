@@ -1,5 +1,5 @@
 
-require 'sinarey'
+$LOAD_PATH.unshift File.expand_path('../lib',__dir__)
 
 require_relative 'app'
 require_relative 'app2'
@@ -11,4 +11,7 @@ appRouter = Sinarey::Router.new do
   mount Application2
   notfound NotfoundApp
 end
+
 run appRouter
+
+#run Application

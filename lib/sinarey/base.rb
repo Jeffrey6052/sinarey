@@ -21,6 +21,7 @@ module Sinatra
 
     # Rack call interface.
     def call(env)
+      env['rack.framework'] = "Sinarey"
       dup.call!(env)
     end
 
@@ -78,13 +79,6 @@ module Sinatra
       throw :halt, response
     end
 
-    # Pass control to the next matching route.
-    # If there are no more matching routes, Sinatra will
-    # return a 404 response.
-    def pass(&block)
-      throw :pass, block
-    end
-
     # Forward the request to the downstream app -- middleware only.
     def forward
       fail "downstream app not set" unless @app.respond_to? :call
@@ -104,38 +98,34 @@ module Sinatra
     end
 
     # Run routes defined on the class and all superclasses.
-    def route!(base = settings, pass_block = nil)
+    def route!(base = settings)
       if router = env['sinarey.router']
         return mount_route!(router)
       end
 
       if turbo_route = (turbo_routes = base.turbo_routes[@request.request_method]) && (path_info = turbo_routes[@request.path_info])
         turbo_route.tap do |block_id|
-          block = base.blocks[block_id]
-          returned_pass_block = process_turbo_route do |*args|
+          process_turbo_route do |*args|
+            block = base.blocks[block_id]
             env['sinatra.route'] = block.instance_variable_get(:@route_name)
             route_eval { block[*args] }
           end
-          pass_block = returned_pass_block if returned_pass_block
         end
       elsif routes = base.routes[@request.request_method]
         routes.each do |pattern, keys, conditions, block_id|
-          block = base.blocks[block_id]
-          returned_pass_block = process_route(pattern, keys, conditions) do |*args|
+          process_route(pattern, keys, conditions) do |*args|
+            block = base.blocks[block_id]
             env['sinatra.route'] = block.instance_variable_get(:@route_name)
             route_eval { block[*args] }
           end
-          # don't wipe out pass_block in superclass
-          pass_block = returned_pass_block if returned_pass_block
         end
       end
 
       # Run routes defined in superclass.
       if base.superclass.respond_to?(:routes)
-        return route!(base.superclass, pass_block)
+        return route!(base.superclass)
       end
 
-      route_eval(&pass_block) if pass_block
       route_missing
     end
 
@@ -143,24 +133,20 @@ module Sinatra
       type,block_id = options[:type],options[:block_id]
       case type
       when :turbo
-        block = base.blocks[block_id]
-        returned_pass_block = process_turbo_route do |*args|
+        process_turbo_route do |*args|
+          block = base.blocks[block_id]
           env['sinatra.route'] = block.instance_variable_get(:@route_name)
           route_eval { block[*args] }
         end
-        pass_block = returned_pass_block if returned_pass_block
       when :normal
         match,keys,conditions = options[:match],options[:keys],options[:conditions]
-        block = base.blocks[block_id]
-        returned_pass_block = process_mount_route(match, keys, conditions) do |*args|
+        process_mount_route(match, keys, conditions) do |*args|
+          block = base.blocks[block_id]
           env['sinatra.route'] = block.instance_variable_get(:@route_name)
           route_eval { block[*args] }
         end
-        # don't wipe out pass_block in superclass
-        pass_block = returned_pass_block if returned_pass_block
       end
 
-      route_eval(&pass_block) if pass_block
       route_missing
     end
 
@@ -169,50 +155,44 @@ module Sinatra
       throw :halt, yield
     end
 
+    def process_mount_route(match, keys, conditions, block_id = nil, values = [], &callback)
+      values += match.captures.map! { |v| force_encoding URI_INSTANCE.unescape(v) if v }
+
+      if values.any?
+        original, @params = params, params.merge('splat' => [], 'captures' => values)
+        regex_params = {}
+        keys.zip(values) do |k,v| 
+          if Array === @params[k]
+            regex_params[k] << v
+            @params[k] << v 
+          elsif v
+            regex_params[k] = v
+            @params[k] = v  
+          end
+        end
+        env["sinarey.regex_params"] = regex_params
+      end
+
+      (block_id && (block = settings.blocks[block_id])) ? block[self, values] : yield(self, values)
+    ensure
+      @params = original if original
+    end
+
     # If the current request matches pattern and conditions, fill params
     # with keys and call the given block.
     # Revert params afterwards.
     #
     # Returns pass block.
 
-    def process_route(pattern, keys, conditions, block_id = nil, values = [])
+    def process_route(pattern, keys, conditions, block_id = nil, values = [], &callback)
       route = @request.path_info
       return unless match = pattern.match(route)
-      values += match.captures.map! { |v| force_encoding URI_INSTANCE.unescape(v) if v }
 
-      if values.any?
-        original, @params = params, params.merge('splat' => [], 'captures' => values)
-        keys.zip(values) { |k,v| Array === @params[k] ? @params[k] << v : @params[k] = v if v }
-      end
-
-      catch(:pass) do
-        conditions.each { |c| throw :pass if c.bind(self).call == false }
-        (block_id && (block = settings.blocks[block_id])) ? block[self, values] : yield(self, values)
-      end
-    ensure
-      @params = original if original
+      process_mount_route(match, keys, conditions, block_id, values, &callback)
     end
 
     def process_turbo_route(block = nil)
-      catch(:pass) do
-        block ? block[self, []] : yield(self, [])
-      end
-    end
-
-    def process_mount_route(match, keys, conditions, block_id = nil, values = [])
-      values += match.captures.map! { |v| force_encoding URI_INSTANCE.unescape(v) if v }
-
-      if values.any?
-        original, @params = params, params.merge('splat' => [], 'captures' => values)
-        keys.zip(values) { |k,v| Array === @params[k] ? @params[k] << v : @params[k] = v if v }
-      end
-
-      catch(:pass) do
-        conditions.each { |c| throw :pass if c.bind(self).call == false }
-        (block_id && (block = settings.blocks[block_id])) ? block[self, values] : yield(self, values)
-      end
-    ensure
-      @params = original if original
+      block ? block[self, []] : yield(self, [])
     end
 
     def process_filter(pattern, keys, conditions, block = nil, values = [])
@@ -226,15 +206,12 @@ module Sinatra
         keys.zip(values) { |k,v| Array === @params[k] ? @params[k] << v : @params[k] = v if v }
       end
 
-      catch(:pass) do
-        conditions.each { |c| throw :pass if c.bind(self).call == false }
-        block ? block[self, values] : yield(self, values)
-      end
+      block ? block[self, values] : yield(self, values)
     ensure
       @params = original if original
     end
 
-    # No matching route was found or all routes passed. The default
+    # No matching route was found. The default
     # implementation is to forward the request downstream when running
     # as middleware (@app is non-nil); when no downstream app is set, raise
     # a NotFound exception. Subclasses can override this method to perform
@@ -1162,6 +1139,10 @@ module Sinatra
       response.status = 500
       content_type 'text/html'
       '<h1>Internal Server Error</h1>'
+    end
+
+    after do
+      env['sinarey.common_params'] = @params
     end
 
     configure :development do

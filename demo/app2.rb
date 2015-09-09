@@ -1,6 +1,5 @@
 
-#$LOAD_PATH.unshift File.expand_path('../lib',__dir__)
-#require 'sinarey/base'
+require 'sinarey/base'
 
 class Application2 < Sinatra::SinareyBase
 

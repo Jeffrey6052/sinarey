@@ -12,11 +12,6 @@ module Sinarey
     def call(env)
       route = env["PATH_INFO"]
       route.chop! if (char=route[-1]) and char=='/' # ignore last '/' char
-
-      #pjax request support
-      if route.chomp!('.pjax')
-        env["IS_PJAX_REQUEST"] = true
-      end
       
       if response = apps_route(env["REQUEST_METHOD"], route, env)
         response
